@@ -1,0 +1,4 @@
+tfm_usb.db
+*.log
+__pycache__/
+*.pyc
