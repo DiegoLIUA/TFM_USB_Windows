@@ -29,13 +29,14 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 SQL_CREATE_EVENTS = """
 CREATE TABLE IF NOT EXISTS events (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_id  INTEGER,
-    session_id INTEGER,
-    event_type TEXT,
-    timestamp  TEXT,
-    source     TEXT,
-    raw        TEXT,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id   INTEGER,
+    session_id  INTEGER,
+    event_type  TEXT,
+    timestamp   TEXT,
+    source      TEXT,
+    raw         TEXT,
+    hash_sha256 TEXT,
     FOREIGN KEY (device_id) REFERENCES devices(id),
     FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
