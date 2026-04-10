@@ -4,6 +4,7 @@ Proporciona conexión, inicialización y operaciones CRUD básicas.
 """
 
 import sqlite3
+import hashlib
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -13,6 +14,11 @@ from store.models import ALL_TABLES
 logger = logging.getLogger(__name__)
 
 DB_PATH = Path(__file__).parent.parent / "tfm_usb.db"
+
+
+def _compute_hash(data: str) -> str:
+    """Calcula SHA-256 del contenido de un evento."""
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
 def get_connection() -> sqlite3.Connection:
@@ -57,10 +63,25 @@ def get_all_devices() -> List[Dict[str, Any]]:
         return [dict(r) for r in rows]
 
 
-def insert_event(event: Dict[str, Any]) -> None:
+def insert_session(session: Dict[str, Any]) -> int:
+    """Inserta una sesion USB y devuelve su id."""
     sql = """
-    INSERT INTO events (device_id, session_id, event_type, timestamp, source, raw)
-    VALUES (:device_id, :session_id, :event_type, :timestamp, :source, :raw)
+    INSERT INTO sessions (device_id, connected, disconnected, drive_letter)
+    VALUES (:device_id, :connected, :disconnected, :drive_letter)
+    """
+    with get_connection() as conn:
+        cur = conn.execute(sql, session)
+        conn.commit()
+        return cur.lastrowid
+
+
+def insert_event(event: Dict[str, Any]) -> None:
+    """Inserta un evento con hash SHA-256 de integridad."""
+    raw = event.get("raw") or ""
+    event["hash_sha256"] = _compute_hash(raw)
+    sql = """
+    INSERT INTO events (device_id, session_id, event_type, timestamp, source, raw, hash_sha256)
+    VALUES (:device_id, :session_id, :event_type, :timestamp, :source, :raw, :hash_sha256)
     """
     with get_connection() as conn:
         conn.execute(sql, event)
@@ -74,6 +95,58 @@ def get_events_for_device(device_id: int) -> List[Dict[str, Any]]:
             (device_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def get_sessions_for_device(device_id: int) -> List[Dict[str, Any]]:
+    """Devuelve todas las sesiones de un dispositivo."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM sessions WHERE device_id = ? ORDER BY connected DESC",
+            (device_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_devices_filtered(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    serial_filter: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Devuelve dispositivos filtrados por rango de fechas y/o serial."""
+    clauses = []
+    params: List[Any] = []
+    if date_from:
+        clauses.append("last_seen >= ?")
+        params.append(date_from)
+    if date_to:
+        clauses.append("first_seen <= ?")
+        params.append(date_to)
+    if serial_filter:
+        clauses.append("(serial LIKE ? OR friendly_name LIKE ?)")
+        params.extend([f"%{serial_filter}%", f"%{serial_filter}%"])
+
+    where = " AND ".join(clauses)
+    sql = "SELECT * FROM devices"
+    if where:
+        sql += f" WHERE {where}"
+    sql += " ORDER BY last_seen DESC"
+
+    with get_connection() as conn:
+        rows = conn.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_device_sources(device_id: int) -> str:
+    """Devuelve las fuentes de datos que registraron un dispositivo."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT source FROM events WHERE device_id = ?",
+            (device_id,),
+        ).fetchall()
+        sources = [r["source"] for r in rows]
+        if "registro" not in sources:
+            sources.append("registro")
+        return ", ".join(sorted(set(sources)))
 
 
 def clear_devices() -> None:
