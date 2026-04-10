@@ -44,6 +44,7 @@ _TEMPLATE = """<!DOCTYPE html>
         <th>Product ID</th>
         <th>Primera conexión</th>
         <th>Última conexión</th>
+        <th>Fuentes</th>
       </tr>
     </thead>
     <tbody>
@@ -56,9 +57,10 @@ _TEMPLATE = """<!DOCTYPE html>
         <td>{{ dev.product_id or '—' }}</td>
         <td>{{ dev.first_seen or '—' }}</td>
         <td>{{ dev.last_seen or '—' }}</td>
+        <td>{{ dev.sources or 'registro' }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="7">No se encontraron dispositivos.</td></tr>
+      <tr><td colspan="8">No se encontraron dispositivos.</td></tr>
       {% endfor %}
     </tbody>
   </table>
