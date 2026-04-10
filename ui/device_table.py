@@ -15,6 +15,7 @@ COLUMNS = [
     ("product_id",    "Product ID"),
     ("first_seen",    "Primera conexión"),
     ("last_seen",     "Última conexión"),
+    ("sources",       "Fuentes"),
 ]
 
 
