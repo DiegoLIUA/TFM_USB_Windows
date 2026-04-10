@@ -27,18 +27,44 @@ class AnalysisWorker(QThread):
     def run(self) -> None:
         try:
             from acquisition.registry_reader import read_usb_devices
+            from acquisition.evtx_reader import read_usb_events
+            from acquisition.setupapi_reader import read_setupapi_devices
             from normalization.normalizer import normalize_devices
-            from store.database import initialize_database, upsert_device, get_all_devices
+            from normalization.correlator import correlate_sources
+            from store.database import (
+                initialize_database, upsert_device, get_all_devices,
+                insert_event, get_device_sources,
+            )
 
             raw = read_usb_devices()
+            evtx_events = read_usb_events()
+            setupapi_entries = read_setupapi_devices()
+
             clean = normalize_devices(raw)
             initialize_database()
-            for dev in clean:
-                upsert_device(dev)
+
+            result = correlate_sources(clean, evtx_events, setupapi_entries)
+
+            # Persistir dispositivos y obtener IDs
+            serial_to_id = {}
+            for dev in result["devices"]:
+                dev_id = upsert_device(dev)
+                serial_to_id[dev.get("serial", "")] = dev_id
+
+            # Persistir eventos con device_id resuelto
+            for evt in result["events"]:
+                serial = evt.pop("_serial", "")
+                evt["device_id"] = serial_to_id.get(serial)
+                insert_event(evt)
+
+            # Recuperar dispositivos y anadir fuentes
             devices = get_all_devices()
+            for dev in devices:
+                dev["sources"] = get_device_sources(dev["id"])
+
             self.finished.emit(devices)
         except Exception as exc:
-            logger.exception("Error durante el análisis")
+            logger.exception("Error durante el analisis")
             self.error.emit(str(exc))
 
 
