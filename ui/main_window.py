@@ -15,6 +15,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 from ui.device_table import DeviceTable
 from ui.report_viewer import ReportViewerDialog
+from ui.filter_bar import FilterBar
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,11 @@ class MainWindow(QMainWindow):
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         root.addWidget(title)
 
+        # Barra de filtros
+        self.filter_bar = FilterBar()
+        self.filter_bar.filter_changed.connect(self._apply_filters)
+        root.addWidget(self.filter_bar)
+
         # Tabla de dispositivos
         self.table = DeviceTable()
         root.addWidget(self.table)
@@ -136,6 +142,31 @@ class MainWindow(QMainWindow):
         self.btn_analyze.setEnabled(True)
         self.status.showMessage("Error durante el análisis.")
         QMessageBox.critical(self, "Error", f"Error durante el análisis:\n{msg}")
+
+    def _apply_filters(self) -> None:
+        """Aplica los filtros de la barra sobre los dispositivos en memoria."""
+        if not self._devices:
+            return
+        filters = self.filter_bar.get_filters()
+        filtered = []
+        for dev in self._devices:
+            last_seen = dev.get("last_seen") or ""
+            first_seen = dev.get("first_seen") or ""
+            if filters["date_from"] and last_seen and last_seen < filters["date_from"]:
+                continue
+            if filters["date_to"] and first_seen and first_seen > filters["date_to"]:
+                continue
+            if filters["search"]:
+                text = filters["search"].lower()
+                name = (dev.get("friendly_name") or "").lower()
+                serial = (dev.get("serial") or "").lower()
+                if text not in name and text not in serial:
+                    continue
+            filtered.append(dev)
+        self.table.load_devices(filtered)
+        self.status.showMessage(
+            f"Mostrando {len(filtered)} de {len(self._devices)} dispositivo(s)."
+        )
 
     def _export_report(self) -> None:
         if not self._devices:
