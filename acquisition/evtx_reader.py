@@ -11,14 +11,14 @@ from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-EVTX_DRIVER_LOG = Path(
-    r"C:\Windows\System32\winevt\Logs"
-    r"\Microsoft-Windows-DriverFrameworks-UserMode%4Operational.evtx"
-)
-EVTX_PNP_LOG = Path(
-    r"C:\Windows\System32\winevt\Logs"
-    r"\Microsoft-Windows-Kernel-PnP%4Configuration.evtx"
-)
+_EVTX_DIR = Path(r"C:\Windows\System32\winevt\Logs")
+
+EVTX_LOGS = [
+    _EVTX_DIR / "Microsoft-Windows-DriverFrameworks-UserMode%4Operational.evtx",
+    _EVTX_DIR / "Microsoft-Windows-Kernel-PnP%4Configuration.evtx",
+    _EVTX_DIR / "Microsoft-Windows-Kernel-PnP%4Device Management.evtx",
+    _EVTX_DIR / "Microsoft-Windows-UserPnp%4DeviceInstall.evtx",
+]
 
 _RELEVANT_EVENT_IDS = {"2003", "2004", "2010", "20001", "20003"}
 _CONNECT_IDS = {"2003", "20001"}
@@ -84,9 +84,9 @@ def _parse_evtx_file(evtx_path: Path) -> List[Dict[str, Any]]:
 
 
 def read_usb_events() -> List[Dict[str, Any]]:
-    """Lee eventos USB desde los logs de DriverFrameworks y PnP."""
+    """Lee eventos USB desde los logs de sistema disponibles."""
     all_events: List[Dict[str, Any]] = []
-    for log_path in (EVTX_DRIVER_LOG, EVTX_PNP_LOG):
+    for log_path in EVTX_LOGS:
         if log_path.exists():
             all_events.extend(_parse_evtx_file(log_path))
         else:

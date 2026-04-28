@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## [2026-04-28] — Fix timestamps, VID/PID reales, tipo de dispositivo y encoding
+
+### Corregido
+- `acquisition/registry_reader.py`: timestamps first_seen/last_seen ahora se obtienen de `QueryInfoKey()` (antes intentaba leer Properties con permisos de admin y fallaba silenciosamente)
+- `acquisition/registry_reader.py`: VID/PID reales obtenidos cruzando USBSTOR con la clave USB vía ContainerID (antes usaba el formato Ven_/Prod_ de USBSTOR que no es VID/PID)
+- `acquisition/setupapi_reader.py`: detección automática de encoding (utf-8, utf-16, cp1252) en vez de asumir utf-16
+- `acquisition/setupapi_reader.py`: regex adaptada al formato real de sección del log (`>>> [Device Install ... - USB\VID_xxxx&PID_xxxx\serial]`)
+- `acquisition/evtx_reader.py`: rutas de logs ampliadas para incluir Kernel-PnP Device Management y UserPnp DeviceInstall
+
+### Añadido
+- Columna `device_type` en tabla `devices` y en la UI/informe (almacenamiento, HID, audio, etc.)
+- Clasificación automática de tipo de dispositivo USB mediante el campo `Service` del registro
+
+### Modificado
+- `store/models.py`: columna `device_type` en esquema SQL
+- `store/database.py`: `upsert_device()` incluye `device_type`
+- `normalization/normalizer.py`: pasa `device_type` en normalización
+- `ui/device_table.py`: columna "Tipo" en la tabla
+- `reporting/report_generator.py`: columna "Tipo" en informe HTML
+
 ## [2026-04-01] — MVP Forense: correlación multifuente y filtros
 
 ### Añadido

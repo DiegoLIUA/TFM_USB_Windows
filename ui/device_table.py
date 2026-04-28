@@ -10,6 +10,7 @@ from PyQt6.QtGui import QColor
 
 COLUMNS = [
     ("friendly_name", "Nombre del dispositivo"),
+    ("device_type",   "Tipo"),
     ("serial",        "Número de serie"),
     ("vendor_id",     "Vendor ID"),
     ("product_id",    "Product ID"),

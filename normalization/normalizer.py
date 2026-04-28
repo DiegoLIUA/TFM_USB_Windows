@@ -39,6 +39,7 @@ def normalize_device(raw_device: Dict[str, Any]) -> Dict[str, Any]:
         "product_id":   (raw_device.get("product_id") or "").upper().strip(),
         "serial":       (raw_device.get("serial") or "UNKNOWN").strip(),
         "friendly_name": (raw_device.get("friendly_name") or "Dispositivo USB").strip(),
+        "device_type":  (raw_device.get("device_type") or "almacenamiento").strip(),
         "first_seen":   normalize_timestamp(raw_device.get("first_seen")),
         "last_seen":    normalize_timestamp(raw_device.get("last_seen")),
     }

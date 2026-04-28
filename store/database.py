@@ -38,10 +38,11 @@ def initialize_database() -> None:
 
 def upsert_device(device: Dict[str, Any]) -> int:
     sql = """
-    INSERT INTO devices (vendor_id, product_id, serial, friendly_name, first_seen, last_seen)
-    VALUES (:vendor_id, :product_id, :serial, :friendly_name, :first_seen, :last_seen)
+    INSERT INTO devices (vendor_id, product_id, serial, friendly_name, device_type, first_seen, last_seen)
+    VALUES (:vendor_id, :product_id, :serial, :friendly_name, :device_type, :first_seen, :last_seen)
     ON CONFLICT(serial) DO UPDATE SET
         friendly_name = excluded.friendly_name,
+        device_type   = excluded.device_type,
         last_seen     = excluded.last_seen
     """
     with get_connection() as conn:

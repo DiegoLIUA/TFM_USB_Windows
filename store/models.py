@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS devices (
     product_id    TEXT,
     serial        TEXT UNIQUE,
     friendly_name TEXT,
+    device_type   TEXT DEFAULT 'almacenamiento',
     first_seen    TEXT,
     last_seen     TEXT,
     created_at    TEXT DEFAULT (datetime('now'))

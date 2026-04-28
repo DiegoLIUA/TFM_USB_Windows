@@ -39,6 +39,7 @@ _TEMPLATE = """<!DOCTYPE html>
       <tr>
         <th>#</th>
         <th>Nombre del dispositivo</th>
+        <th>Tipo</th>
         <th>Número de serie</th>
         <th>Vendor ID</th>
         <th>Product ID</th>
@@ -52,6 +53,7 @@ _TEMPLATE = """<!DOCTYPE html>
       <tr>
         <td>{{ loop.index }}</td>
         <td>{{ dev.friendly_name }}</td>
+        <td>{{ dev.device_type or 'almacenamiento' }}</td>
         <td><code>{{ dev.serial }}</code></td>
         <td>{{ dev.vendor_id or '—' }}</td>
         <td>{{ dev.product_id or '—' }}</td>
@@ -60,7 +62,7 @@ _TEMPLATE = """<!DOCTYPE html>
         <td>{{ dev.sources or 'registro' }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="8">No se encontraron dispositivos.</td></tr>
+      <tr><td colspan="9">No se encontraron dispositivos.</td></tr>
       {% endfor %}
     </tbody>
   </table>
