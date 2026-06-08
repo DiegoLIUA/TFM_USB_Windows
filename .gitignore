@@ -1,4 +1,12 @@
+# Base de datos y registros generados en ejecucion
 tfm_usb.db
 *.log
+
+# Informes generados por la aplicacion (HTML/JSON)
+informes/
+
+# Cache de Python y entorno virtual
 __pycache__/
 *.pyc
+.venv/
+.pytest_cache/

@@ -28,22 +28,46 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+# Columnas anadidas en versiones posteriores: (tabla, columna, definicion SQL).
+# Se aplican con ALTER TABLE sobre bases de datos ya existentes para no perder
+# datos al evolucionar el esquema.
+_MIGRATIONS = [
+    ("devices", "capacity", "TEXT"),
+]
+
+
+def _apply_migrations(conn) -> None:
+    """Anade columnas que falten en una BD preexistente, sin borrar datos."""
+    for table, column, coltype in _MIGRATIONS:
+        cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})")]
+        if column not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
+            logger.info("Migracion: anadida columna %s.%s", table, column)
+
+
 def initialize_database() -> None:
     with get_connection() as conn:
         for sql in ALL_TABLES:
             conn.execute(sql)
+        _apply_migrations(conn)
         conn.commit()
     logger.info("Base de datos inicializada en %s", DB_PATH)
 
 
 def upsert_device(device: Dict[str, Any]) -> int:
+    device = dict(device)
+    device.setdefault("capacity", "")
     sql = """
-    INSERT INTO devices (vendor_id, product_id, serial, friendly_name, device_type, first_seen, last_seen)
-    VALUES (:vendor_id, :product_id, :serial, :friendly_name, :device_type, :first_seen, :last_seen)
+    INSERT INTO devices (vendor_id, product_id, serial, friendly_name, device_type, capacity, first_seen, last_seen)
+    VALUES (:vendor_id, :product_id, :serial, :friendly_name, :device_type, :capacity, :first_seen, :last_seen)
     ON CONFLICT(serial) DO UPDATE SET
         friendly_name = excluded.friendly_name,
         device_type   = excluded.device_type,
-        last_seen     = excluded.last_seen
+        capacity      = COALESCE(NULLIF(excluded.capacity, ''), devices.capacity),
+        first_seen    = MIN(COALESCE(devices.first_seen, excluded.first_seen),
+                           COALESCE(excluded.first_seen, devices.first_seen)),
+        last_seen     = MAX(COALESCE(devices.last_seen, excluded.last_seen),
+                           COALESCE(excluded.last_seen, devices.last_seen))
     """
     with get_connection() as conn:
         cur = conn.execute(sql, device)
@@ -74,6 +98,38 @@ def insert_session(session: Dict[str, Any]) -> int:
         cur = conn.execute(sql, session)
         conn.commit()
         return cur.lastrowid
+
+
+def open_drive_session(device_id, drive_letter: str, connected: str) -> int:
+    """Abre una sesion (sin desconexion) para una unidad recien montada."""
+    with get_connection() as conn:
+        cur = conn.execute(
+            "INSERT INTO sessions (device_id, connected, disconnected, "
+            "drive_letter) VALUES (?, ?, NULL, ?)",
+            (device_id, connected, drive_letter),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def close_drive_session(drive_letter: str, disconnected: str) -> bool:
+    """
+    Cierra la sesion abierta mas reciente de una unidad (la que no tiene
+    desconexion), registrando la hora de desconexion. Devuelve True si cerro
+    alguna.
+    """
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM sessions WHERE drive_letter = ? AND "
+            "disconnected IS NULL ORDER BY connected DESC LIMIT 1",
+            (drive_letter,),
+        ).fetchone()
+        if not row:
+            return False
+        conn.execute("UPDATE sessions SET disconnected = ? WHERE id = ?",
+                     (disconnected, row["id"]))
+        conn.commit()
+        return True
 
 
 def insert_event(event: Dict[str, Any]) -> None:
@@ -156,3 +212,31 @@ def clear_devices() -> None:
         conn.execute("DELETE FROM sessions")
         conn.execute("DELETE FROM devices")
         conn.commit()
+
+
+def set_device_trusted(serial: str, trusted: bool) -> None:
+    """Marca o desmarca un dispositivo como de confianza (allowlist)."""
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE devices SET trusted = ? WHERE serial = ?",
+            (1 if trusted else 0, serial),
+        )
+        conn.commit()
+
+
+def get_trusted_serials() -> set:
+    """Devuelve el conjunto de seriales marcados como de confianza."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT serial FROM devices WHERE trusted = 1"
+        ).fetchall()
+        return {r["serial"] for r in rows}
+
+
+def get_device_by_serial(serial: str) -> Optional[Dict[str, Any]]:
+    """Devuelve el dispositivo con ese serial, o None si no existe."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM devices WHERE serial = ?", (serial,)
+        ).fetchone()
+        return dict(row) if row else None

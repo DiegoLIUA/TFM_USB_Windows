@@ -51,7 +51,9 @@ def _parse_evtx_file(evtx_path: Path) -> List[Dict[str, Any]]:
     try:
         from evtx import PyEvtxParser
     except ImportError:
-        logger.warning("python-evtx no disponible. Saltando lectura de Event Logs.")
+        logger.warning(
+            "Libreria 'evtx' no disponible. Saltando lectura de Event Logs. "
+            "Instale con: pip install evtx")
         return []
 
     events: List[Dict[str, Any]] = []
@@ -76,6 +78,11 @@ def _parse_evtx_file(evtx_path: Path) -> List[Dict[str, Any]]:
                 "device_id": None,
                 "session_id": None,
             })
+    except PermissionError:
+        logger.warning(
+            "Acceso denegado a %s. La lectura de Event Logs requiere "
+            "ejecutar la aplicacion como administrador.", evtx_path.name)
+        return []
     except Exception as exc:
         logger.warning("Error parseando %s: %s", evtx_path, exc)
 

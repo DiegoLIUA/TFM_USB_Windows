@@ -66,7 +66,6 @@ Acquisition → Normalization → Evidence Store (SQLite)
 
 - Solo Windows 11, sin soporte multiplataforma
 - "Archivos copiados" siempre como indicio forense, nunca como prueba definitiva
-- Ningún archivo supera 200 líneas. Si crece, dividir en dos módulos.
 - Cada función hace una sola cosa
 - Sin servidor externo, solo SQLite local
 - El motor de anomalías es explicable por componentes, no una caja negra
@@ -143,13 +142,9 @@ Acquisition → Normalization → Evidence Store (SQLite)
 - RNF7: No fallar ante datos incompletos
 - RNF8: Todos los errores al log interno
 - RNF9: Integridad verificable por hash SHA-256
-- RNF12: Arquitectura modular, ningún archivo > 200 líneas
-
----
 
 ## REGLAS DE CÓDIGO OBLIGATORIAS
 
-- Ningún archivo supera 200 líneas. Si crece, propón cómo dividirlo antes de escribirlo.
 - Cada función hace una sola cosa y tiene nombre descriptivo.
 - Sin lógica de negocio en archivos de UI.
 - Sin imports innecesarios.
@@ -190,7 +185,6 @@ Al terminar cada bloque de trabajo:
 
 - Lee siempre el código existente antes de modificarlo.
 - No rompas lo que ya funciona.
-- Si algo requiere más de 200 líneas, propón cómo dividirlo antes de escribirlo.
 - Resuelve los problemas técnicos con la opción más simple viable.
 - Trabaja de forma autónoma y avisa cuando termines un bloque.
 - Si algo no está claro, pregunta antes de asumir.

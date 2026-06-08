@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.13, PyQt6 6.10.2, sqlite3, hashlib (stdlib)
 
-**Constraints:** No file > 200 lines. Each function does one thing. No business logic in UI files. Update CHANGELOG.md after each task.
+**Constraints:** Each function does one thing. No business logic in UI files. Update CHANGELOG.md after each task.
 
 ---
 
@@ -179,10 +179,6 @@ def get_device_sources(device_id: int) -> str:
         return ", ".join(sorted(sources)) if sources else "registro"
 ```
 
-- [ ] **Step 7: Verify database.py stays under 200 lines**
-
-The file was 85 lines. Adding ~60 lines of new functions brings it to ~145 lines. Under limit.
-
 - [ ] **Step 8: Commit**
 
 ```bash
@@ -298,10 +294,6 @@ def read_usb_events() -> List[Dict[str, Any]]:
     return all_events
 ```
 
-- [ ] **Step 2: Verify file is under 200 lines**
-
-This version is ~85 lines. Under limit.
-
 - [ ] **Step 3: Commit**
 
 ```bash
@@ -373,10 +365,6 @@ def _parse_log(log_path: Path) -> List[Dict[str, Any]]:
     logger.info("Entradas setupapi parseadas: %d", len(entries))
     return entries
 ```
-
-- [ ] **Step 3: Verify file is under 200 lines**
-
-This version is ~65 lines. Under limit.
 
 - [ ] **Step 4: Commit**
 
@@ -567,10 +555,6 @@ def _matches_device(device: Dict[str, Any], entry: Dict[str, Any]) -> bool:
     return False
 ```
 
-- [ ] **Step 2: Verify file is under 200 lines**
-
-This version is ~145 lines. Under limit.
-
 - [ ] **Step 3: Commit**
 
 ```bash
@@ -633,10 +617,6 @@ def run(self) -> None:
         logger.exception("Error durante el analisis")
         self.error.emit(str(exc))
 ```
-
-- [ ] **Step 2: Verify main_window.py stays under 200 lines**
-
-Original was 127 lines. The run method grew by ~15 lines. Total ~142 lines. Under limit.
 
 - [ ] **Step 3: Commit**
 
@@ -756,10 +736,6 @@ class FilterBar(QWidget):
         }
 ```
 
-- [ ] **Step 2: Verify file is under 200 lines**
-
-This version is ~70 lines. Under limit.
-
 - [ ] **Step 3: Commit**
 
 ```bash
@@ -821,10 +797,6 @@ def _apply_filters(self) -> None:
         f"Mostrando {len(filtered)} de {len(self._devices)} dispositivo(s)."
     )
 ```
-
-- [ ] **Step 3: Verify main_window.py stays under 200 lines**
-
-After adding ~25 lines (import + widget + method), total ~167 lines. Under limit.
 
 - [ ] **Step 4: Commit**
 

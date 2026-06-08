@@ -79,6 +79,16 @@ def _enrich_first_seen(
     return device
 
 
+def _fallback_session(device: Dict[str, Any]) -> Dict[str, Any]:
+    """Sesion sintetica si no hay eventos connect/disconnect."""
+    return {
+        "_serial": device.get("serial", ""),
+        "connected": device.get("last_seen") or device.get("first_seen"),
+        "disconnected": None,
+        "drive_letter": device.get("drive_letter"),
+    }
+
+
 def correlate_sources(
     devices: List[Dict[str, Any]],
     evtx_events: List[Dict[str, Any]],
@@ -87,10 +97,12 @@ def correlate_sources(
     """
     Correlaciona las 3 fuentes. Retorna dict con:
     - devices: lista enriquecida
-    - events: lista de eventos con _serial para asignar device_id tras upsert
-    - sources_map: mapping serial -> lista de fuentes
+    - events: eventos con _serial
+    - sessions: sesiones con _serial
+    - sources_map: serial -> lista de fuentes
     """
     all_events: List[Dict[str, Any]] = []
+    all_sessions: List[Dict[str, Any]] = []
     enriched_devices: List[Dict[str, Any]] = []
     sources_map: Dict[str, List[str]] = {}
 
@@ -98,9 +110,7 @@ def correlate_sources(
         serial = device.get("serial", "")
         sources = ["registro"]
 
-        matched_setupapi = [
-            e for e in setupapi_entries if _matches_device(device, e)
-        ]
+        matched_setupapi = [e for e in setupapi_entries if _matches_device(device, e)]
         if matched_setupapi:
             device = _enrich_first_seen(device, matched_setupapi)
             sources.append("setupapi")
@@ -113,8 +123,7 @@ def correlate_sources(
         sources_map[serial] = sources
 
         for evt in matched_evtx:
-            evt_copy = dict(evt)
-            evt_copy["_serial"] = serial
+            evt_copy = dict(evt); evt_copy["_serial"] = serial
             all_events.append(evt_copy)
 
         for entry in matched_setupapi:
@@ -128,12 +137,22 @@ def correlate_sources(
                 "session_id": None,
             })
 
+        sessions = _build_sessions(0, matched_evtx)
+        if sessions:
+            for s in sessions:
+                s["_serial"] = serial
+                s.pop("device_id", None)
+                all_sessions.append(s)
+        elif device.get("first_seen") or device.get("last_seen"):
+            all_sessions.append(_fallback_session(device))
+
     logger.info(
-        "Correlacion completada: %d dispositivos, %d eventos",
-        len(enriched_devices), len(all_events),
+        "Correlacion completada: %d dispositivos, %d eventos, %d sesiones",
+        len(enriched_devices), len(all_events), len(all_sessions),
     )
     return {
         "devices": enriched_devices,
         "events": all_events,
+        "sessions": all_sessions,
         "sources_map": sources_map,
     }
