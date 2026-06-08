@@ -6,8 +6,9 @@ Proporciona conexión, inicialización y operaciones CRUD básicas.
 import sqlite3
 import hashlib
 import logging
+from contextlib import contextmanager
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Iterator
 
 from store.models import ALL_TABLES
 
@@ -21,11 +22,26 @@ def _compute_hash(data: str) -> str:
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
-def get_connection() -> sqlite3.Connection:
+@contextmanager
+def get_connection() -> Iterator[sqlite3.Connection]:
+    """
+    Conexion a la BD como gestor de contexto. A diferencia del 'with' nativo de
+    sqlite3 (que solo gestiona la transaccion pero deja la conexion abierta),
+    este SIEMPRE cierra la conexion al salir, evitando fugas de recursos en la
+    ejecucion prolongada del monitor. Hace commit si no hubo excepcion y
+    rollback si la hubo.
+    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 # Columnas anadidas en versiones posteriores: (tabla, columna, definicion SQL).
