@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## [2026-06-09b] — Corrección de fuga de conexiones SQLite
+
+### Corregido
+- **Las conexiones a la base de datos no se cerraban**: el patrón
+  `with get_connection() as conn` solo gestionaba la transacción (comportamiento
+  nativo de `sqlite3`), dejando la conexión abierta. En la ejecución prolongada
+  del monitor (consultas cada 1–30 s) esto acumulaba conexiones sin liberar (se
+  manifestaba como 334 `ResourceWarning` en la batería de pruebas). `get_connection`
+  pasa a ser un gestor de contexto propio que cierra siempre la conexión (commit
+  si no hay excepción, rollback si la hay). Mejora también el acceso concurrente
+  desde los hilos de interfaz, monitor y análisis. No requirió cambios en los
+  puntos de uso.
+
 ## [2026-06-09] — Organización de informes y arranque robusto
 
 ### Modificado
