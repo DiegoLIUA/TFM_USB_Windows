@@ -108,15 +108,20 @@ def _react_to_devices(
     devices_info: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """
-    Aplica la politica de seguridad a una lista de dispositivos recien
-    conectados. Cada elemento es un dict con al menos 'serial' y, si se conoce,
-    'friendly_name', 'id', 'vendor_id', 'product_id', 'capacity'.
-    En monitorizacion alerta; en estricto alerta y bloquea. Solo actua sobre
-    dispositivos que no son de confianza o que se conectan fuera de horario.
+    Aplica la politica de control de acceso Zero Trust a una lista de
+    dispositivos recien conectados. Cada elemento es un dict con al menos
+    'serial' y, si se conoce, 'friendly_name', 'id', 'vendor_id', 'product_id',
+    'capacity'.
+
+    Esta politica es exclusiva del modo ESTRICTO: alerta y bloquea (con segundo
+    factor) los dispositivos no confiables o fuera de horario. En modo
+    monitorizacion NO actua: ahi las alertas las genera el motor estadistico de
+    anomalias (con su desglose gradual hora/disp/maha), evitando mezclar la
+    regla binaria de confianza con la rareza estadistica.
     Devuelve los bloqueos aplicados.
     """
     mode = (get_config("anomaly.mode", "aprendizaje") or "").lower()
-    if mode not in ("monitorizacion", "estricto"):
+    if mode != "estricto":
         return []
     sch = get_schedule()
     if not sch["days"]:
@@ -131,8 +136,7 @@ def _react_to_devices(
         if not motivo:
             continue  # confiable y dentro de horario: permitido
         _alert(serial, motivo, comp, dev.get("friendly_name"))
-        if mode == "estricto":
-            blocks.append(block_for_schedule(dev))
+        blocks.append(block_for_schedule(dev))
     if blocks:
         logger.info("Monitor: %d dispositivo(s) bloqueado(s) por politica.",
                     len(blocks))
@@ -220,10 +224,65 @@ def _open_storage_session(letra: str, ahora: str,
     open_drive_session(dev.get("id"), letra, ahora)
 
 
+def _score_closed_session(closed: Dict[str, Any]) -> None:
+    """
+    Puntua con el motor de anomalias una sesion de USB recien cerrada y genera
+    alerta si supera el umbral (modos monitorizacion y estricto). El desglose es
+    el real y gradual del motor (hora/disp/maha), a diferencia de la regla
+    binaria de la politica Zero Trust. Best-effort: cualquier fallo se registra
+    sin interrumpir el monitor.
+    """
+    mode = (get_config("anomaly.mode", "aprendizaje") or "").lower()
+    if mode not in ("monitorizacion", "estricto"):
+        return
+    device_id = closed.get("device_id")
+    if not device_id:
+        return
+    try:
+        import json
+        from store.database import get_all_devices, get_trusted_serials
+        from analytics.pipeline import load_or_train_detector
+        from analytics.anomaly_detector import (
+            severity_from_score, reason_from_components)
+
+        dev = next((d for d in get_all_devices()
+                    if d.get("id") == device_id), None)
+        if not dev:
+            return
+        serial = dev.get("serial") or ""
+        if serial in get_trusted_serials():
+            return  # los dispositivos de confianza no generan alertas
+        session = {"serial": serial,
+                   "connected": closed.get("connected"),
+                   "disconnected": closed.get("disconnected")}
+        threshold = float(get_config("anomaly.threshold", "0.6") or "0.6")
+        result = load_or_train_detector().score(session)
+        severity = severity_from_score(result["score"], threshold)
+        if not severity:
+            return
+        insert_alert({
+            "device_id":  device_id,
+            "session_id": closed.get("id"),
+            "severity":   severity,
+            "score":      result["score"],
+            "reason":     reason_from_components(result["components"]),
+            "components": json.dumps(result["components"]),
+        })
+        logger.info("Monitor: alerta del motor (%s, score=%.2f) para %s.",
+                    severity, result["score"], dev.get("friendly_name") or serial)
+    except Exception as exc:  # noqa: BLE001 (no interrumpir el monitor)
+        logger.warning("No se pudo puntuar la sesion cerrada: %s", exc)
+
+
 def _close_storage_session(letra: str, ahora: str) -> None:
-    """Cierra la sesion abierta de una unidad que se acaba de retirar."""
+    """
+    Cierra la sesion abierta de una unidad que se acaba de retirar y, en
+    monitorizacion/estricto, la puntua con el motor de anomalias.
+    """
     from store.database import close_drive_session
-    close_drive_session(letra, ahora)
+    closed = close_drive_session(letra, ahora)
+    if closed:
+        _score_closed_session(closed)
 
 
 def _react_to_new_drives(

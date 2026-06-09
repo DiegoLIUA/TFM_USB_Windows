@@ -92,7 +92,7 @@ class DashboardView(QWidget):
         ax.set_xlabel("Muestras en primer plano")
 
     def _draw_avg_duration(self, ax) -> None:
-        data = stats.avg_duration_top_storage(n=3)
+        data = stats.median_duration_top_storage(n=3)
         if data:
             nombres = [n[:16] for n, _ in data][::-1]
             vals = [m for _, m in data][::-1]
@@ -102,8 +102,8 @@ class DashboardView(QWidget):
                 ax.text(v, i, f" {v:.0f} min", va="center", fontsize=8)
         else:
             _empty(ax)
-        ax.set_title("Duración media de uso (almacenamiento)")
-        ax.set_xlabel("Minutos por sesión")
+        ax.set_title("Duración típica de uso (almacenamiento)")
+        ax.set_xlabel("Minutos por sesión (mediana)")
 
 
 def _empty(ax) -> None:

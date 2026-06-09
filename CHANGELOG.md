@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## [2026-06-10] — Coherencia de alertas y duración de almacenamiento
+
+### Corregido
+- **La política Zero Trust se aplicaba también en modo monitorización**,
+  generando alertas con un desglose binario (disp=1,00 aunque el dispositivo se
+  hubiera conectado antes) que se confundía con la rareza estadística del motor.
+  Ahora la política de bloqueo es **exclusiva del modo estricto**. En
+  monitorización las alertas las genera el motor de anomalías, con su desglose
+  real y gradual (hora/disp/maha).
+- **En monitorización no había alerta automática al conectar un USB con el
+  monitor de fondo**: ahora, al cerrarse una sesión de almacenamiento (al
+  retirar el dispositivo), el monitor la puntúa con el motor y genera alerta si
+  supera el umbral, con el desglose correcto.
+- **Severidad de alertas históricas incoherente**: se añade
+  `recompute_alert_severities`, que reasigna la banda fija por score (alta
+  >0,75; media [0,5; 0,75]; baja en el resto) a las alertas ya guardadas, sin
+  crearlas ni borrarlas. Corrige casos como 0,67 marcado «baja» que debía ser
+  «media».
+- **Duración media de almacenamiento distorsionada** (p. ej. 788 min frente a
+  1–3 min): se sustituye la media por la **mediana** (robusta frente a sesiones
+  atípicas) y se descartan las sesiones de duración imposible (> 12 h), que son
+  errores de registro (USB retirado sin detectarse la desconexión o datos
+  heredados). El gráfico pasa a titularse «Duración típica de uso».
+
+### Interno
+- `_score_closed_session` en `monitoring/monitor_cycle.py`; `close_drive_session`
+  ahora devuelve el registro de la sesión cerrada.
+- `median_duration_top_storage` (antes `avg_duration_top_storage`) y `_mediana`
+  en `analytics/stats.py`; constante `_MAX_SESSION_MIN`.
+- Pruebas nuevas: recálculo de severidad, puntuación de sesión cerrada,
+  Zero Trust solo en estricto y duración con mediana/topes. Total: 97 pruebas.
+
 ## [2026-06-09d] — Formato de fecha español en la presentación
 
 ### Modificado

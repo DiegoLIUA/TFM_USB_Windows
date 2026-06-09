@@ -84,6 +84,33 @@ def get_alerts(
         return [dict(r) for r in rows]
 
 
+def recompute_alert_severities() -> int:
+    """
+    Recalcula la severidad de todas las alertas ya guardadas segun las bandas
+    fijas por score (alta >0,75; media [0,5; 0,75]; baja en el resto). Util tras
+    cambiar el criterio de severidad, para que las alertas historicas sean
+    coherentes con las nuevas. No crea ni borra alertas: solo actualiza la
+    columna 'severity' de las que cambian. Devuelve cuantas se actualizaron.
+
+    El umbral de alerta no se reaplica aqui: se respeta que la alerta ya existe
+    (en su momento supero el umbral vigente); solo se reasigna su banda. Para el
+    calculo de banda se usa un umbral 0 para que severity_from_score nunca
+    devuelva None sobre una alerta que ya fue emitida.
+    """
+    from analytics.anomaly_detector import severity_from_score
+    actualizadas = 0
+    with get_connection() as conn:
+        rows = conn.execute("SELECT id, score, severity FROM alerts").fetchall()
+        for r in rows:
+            nueva = severity_from_score(float(r["score"] or 0.0), 0.0)
+            if nueva and nueva != r["severity"]:
+                conn.execute("UPDATE alerts SET severity = ? WHERE id = ?",
+                             (nueva, r["id"]))
+                actualizadas += 1
+        conn.commit()
+    return actualizadas
+
+
 def get_all_sessions() -> List[Dict[str, Any]]:
     """Devuelve todas las sesiones con datos del dispositivo."""
     sql = (

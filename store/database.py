@@ -128,24 +128,28 @@ def open_drive_session(device_id, drive_letter: str, connected: str) -> int:
         return cur.lastrowid
 
 
-def close_drive_session(drive_letter: str, disconnected: str) -> bool:
+def close_drive_session(drive_letter: str, disconnected: str) -> Optional[Dict[str, Any]]:
     """
     Cierra la sesion abierta mas reciente de una unidad (la que no tiene
-    desconexion), registrando la hora de desconexion. Devuelve True si cerro
-    alguna.
+    desconexion), registrando la hora de desconexion. Devuelve el registro de la
+    sesion cerrada (id, device_id, connected, disconnected, drive_letter) o None
+    si no habia ninguna abierta.
     """
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT id FROM sessions WHERE drive_letter = ? AND "
-            "disconnected IS NULL ORDER BY connected DESC LIMIT 1",
+            "SELECT id, device_id, connected, drive_letter FROM sessions "
+            "WHERE drive_letter = ? AND disconnected IS NULL "
+            "ORDER BY connected DESC LIMIT 1",
             (drive_letter,),
         ).fetchone()
         if not row:
-            return False
+            return None
         conn.execute("UPDATE sessions SET disconnected = ? WHERE id = ?",
                      (disconnected, row["id"]))
         conn.commit()
-        return True
+        return {"id": row["id"], "device_id": row["device_id"],
+                "connected": row["connected"], "disconnected": disconnected,
+                "drive_letter": row["drive_letter"]}
 
 
 def insert_event(event: Dict[str, Any]) -> None:

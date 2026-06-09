@@ -65,21 +65,38 @@ def device_type_distribution() -> Dict[str, int]:
     return dict(counts)
 
 
-# Duracion minima (minutos) para que una sesion cuente en la media. Descarta
-# conexiones de duracion nula o insignificante (montajes fugaces o sesiones sin
-# uso real), que de otro modo aplastarian la media a la baja. El objetivo es
-# reflejar la duracion tipica de uso cuando el USB esta realmente conectado.
+# Duracion minima (minutos) para que una sesion cuente. Descarta conexiones de
+# duracion nula o insignificante (montajes fugaces o sesiones sin uso real), que
+# no representan un uso efectivo del dispositivo.
 _MIN_SESSION_MIN = 1.0
 
+# Duracion maxima (minutos) plausible para una sesion. Por encima se considera
+# un error de registro (USB retirado sin que se detectara la desconexion, o dato
+# heredado de la generacion inicial), no uso real, y se descarta para no
+# distorsionar la estadistica. 12 h es un limite conservador para uso continuado.
+_MAX_SESSION_MIN = 12 * 60.0
 
-def avg_duration_top_storage(n: int = 3) -> List[Tuple[str, float]]:
+
+def _mediana(valores: List[float]) -> float:
+    """Mediana de una lista no vacia (valor central, robusto a atipicos)."""
+    ordenados = sorted(valores)
+    n = len(ordenados)
+    medio = n // 2
+    if n % 2 == 1:
+        return ordenados[medio]
+    return (ordenados[medio - 1] + ordenados[medio]) / 2.0
+
+
+def median_duration_top_storage(n: int = 3) -> List[Tuple[str, float]]:
     """
-    Duracion media (en minutos) de las sesiones de los dispositivos de
-    almacenamiento mas usados. Solo cuenta sesiones con desconexion registrada
-    y de duracion real (>= _MIN_SESSION_MIN); se ignoran las de duracion nula,
-    pues no representan un uso efectivo del dispositivo.
+    Duracion TIPICA (mediana, en minutos) de las sesiones de los dispositivos de
+    almacenamiento mas usados. Se usa la mediana en lugar de la media porque es
+    robusta frente a sesiones atipicas, que distorsionarian la media. Solo se
+    cuentan sesiones con desconexion registrada y de duracion plausible
+    (entre _MIN_SESSION_MIN y _MAX_SESSION_MIN): se ignoran tanto las fugaces
+    como las imposiblemente largas (errores de registro).
     Devuelve los n dispositivos con mas sesiones (utiles), como
-    (nombre, minutos_media).
+    (nombre, minutos_mediana).
     """
     from datetime import datetime
     from store.database import get_connection
@@ -99,14 +116,14 @@ def avg_duration_top_storage(n: int = 3) -> List[Tuple[str, float]]:
             except (ValueError, TypeError):
                 continue
             mins = (fin - ini).total_seconds() / 60.0
-            if mins < _MIN_SESSION_MIN:
-                continue  # descarta sesiones vacias o fugaces
+            if mins < _MIN_SESSION_MIN or mins > _MAX_SESSION_MIN:
+                continue  # descarta sesiones fugaces o imposiblemente largas
             nombre = r["friendly_name"] or "Dispositivo USB"
             por_dispositivo.setdefault(nombre, []).append(mins)
     # Ordena por numero de sesiones utiles (mas usados) y toma los n primeros
     ordenados = sorted(por_dispositivo.items(),
                        key=lambda kv: len(kv[1]), reverse=True)[:n]
-    return [(nombre, round(sum(v) / len(v), 1)) for nombre, v in ordenados]
+    return [(nombre, round(_mediana(v), 1)) for nombre, v in ordenados]
 
 
 def signal_summary() -> Dict[str, int]:
