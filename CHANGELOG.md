@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## [2026-06-09d] — Formato de fecha español en la presentación
+
+### Modificado
+- **Las fechas se muestran en formato día-mes-año** (dd-mm-aaaa) en los informes
+  HTML (dispositivos y alertas: cabecera, título, primera/última conexión y
+  fecha de alerta) y en la tabla de alertas de la interfaz. La tabla de
+  dispositivos ya lo aplicaba. El formato interno de almacenamiento y el informe
+  JSON se mantienen en ISO (aaaa-mm-dd), estándar correcto para datos y
+  necesario para el parsing, las comparaciones de horario y el motor de
+  anomalías.
+
+### Interno
+- Nuevo módulo `formatting.py` con `fecha_es`, conversión tolerante (deja
+  intacto lo que no es una fecha ISO). Se expone como filtro Jinja2 `fecha_es`
+  en los informes (registrado en el `Environment` antes de compilar la
+  plantilla) y se reutiliza en la vista de alertas.
+- Pruebas en `tests/test_formatting.py` (11 casos). Total: 85 pruebas.
+
 ## [2026-06-09c] — Ampliación de la cobertura de pruebas
 
 ### Añadido

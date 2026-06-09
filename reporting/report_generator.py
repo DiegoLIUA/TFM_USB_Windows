@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
 
+from formatting import fecha_es
+
 logger = logging.getLogger(__name__)
 
 # Carpeta donde se guardan los informes generados, fuera de la raiz del
@@ -22,11 +24,24 @@ def reports_dir() -> Path:
     d.mkdir(exist_ok=True)
     return d
 
+
+def _make_template(source: str):
+    """
+    Compila una plantilla Jinja2 con los filtros propios ya registrados. El
+    filtro 'fecha_es' debe existir antes de compilar (Jinja2 valida los filtros
+    en tiempo de compilacion), por eso se registra en el Environment y no sobre
+    la plantilla ya construida.
+    """
+    from jinja2 import Environment
+    env = Environment(autoescape=True)
+    env.filters["fecha_es"] = fecha_es
+    return env.from_string(source)
+
 _TEMPLATE = """<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Informe Forense USB — {{ generated_at }}</title>
+  <title>Informe Forense USB — {{ generated_at | fecha_es }}</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 40px; color: #222; }
     h1   { color: #1a3a5c; }
@@ -42,7 +57,7 @@ _TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
   <h1>Informe Forense de Dispositivos USB</h1>
-  <p>Generado: <strong>{{ generated_at }}</strong> &nbsp;
+  <p>Generado: <strong>{{ generated_at | fecha_es }}</strong> &nbsp;
      Total de dispositivos: <strong>{{ devices | length }}</strong></p>
 
   <h2>Dispositivos detectados</h2>
@@ -72,8 +87,8 @@ _TEMPLATE = """<!DOCTYPE html>
         <td><code>{{ dev.serial }}</code></td>
         <td>{{ dev.vendor_id or '—' }}</td>
         <td>{{ dev.product_id or '—' }}</td>
-        <td>{{ dev.first_seen or '—' }}</td>
-        <td>{{ dev.last_seen or '—' }}</td>
+        <td>{{ dev.first_seen | fecha_es or '—' }}</td>
+        <td>{{ dev.last_seen | fecha_es or '—' }}</td>
         <td>{{ 'Conectado' if dev.connected else 'Desconectado' }}</td>
         <td>{{ dev.sources or 'registro' }}</td>
       </tr>
@@ -98,13 +113,12 @@ def generate_html_report(
 ) -> Path:
     """Genera un informe HTML y lo guarda en output_path."""
     try:
-        from jinja2 import Template
+        import jinja2  # noqa: F401 (se valida que este disponible)
     except ImportError:
         logger.error("Jinja2 no instalado. No se puede generar el informe.")
         raise
 
-    template = Template(_TEMPLATE)
-    html = template.render(
+    html = _make_template(_TEMPLATE).render(
         devices=devices,
         generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     )
@@ -153,7 +167,7 @@ _ALERTS_TEMPLATE = """<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Informe de Alertas USB — {{ generated_at }}</title>
+  <title>Informe de Alertas USB — {{ generated_at | fecha_es }}</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 40px; color: #222; }
     h1   { color: #1a3a5c; }
@@ -169,7 +183,7 @@ _ALERTS_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
   <h1>Informe de Alertas de Anomalías USB</h1>
-  <p>Generado: <strong>{{ generated_at }}</strong> &nbsp;
+  <p>Generado: <strong>{{ generated_at | fecha_es }}</strong> &nbsp;
      Total de alertas: <strong>{{ alerts | length }}</strong></p>
   <table>
     <thead>
@@ -182,7 +196,7 @@ _ALERTS_TEMPLATE = """<!DOCTYPE html>
       {% for a in alerts %}
       <tr>
         <td>{{ loop.index }}</td>
-        <td>{{ a.timestamp or '—' }}</td>
+        <td>{{ a.timestamp | fecha_es or '—' }}</td>
         <td>{{ a.friendly_name or '—' }}</td>
         <td><code>{{ a.serial or '—' }}</code></td>
         <td class="{{ a.severity }}">{{ (a.severity or '').upper() }}</td>
@@ -222,13 +236,12 @@ def generate_alerts_html_report(
     output_path: Path,
 ) -> Path:
     """Genera un informe HTML de alertas y lo guarda en output_path."""
-    from jinja2 import Template
     rows = []
     for a in alerts:
         d = dict(a)
         d["breakdown"] = _alert_breakdown(a.get("components"))
         rows.append(d)
-    html = Template(_ALERTS_TEMPLATE).render(
+    html = _make_template(_ALERTS_TEMPLATE).render(
         alerts=rows,
         generated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     )

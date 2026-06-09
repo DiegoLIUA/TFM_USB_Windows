@@ -14,6 +14,7 @@ from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtGui import QColor
 
 from store.anomaly_store import get_alerts
+from formatting import fecha_es
 
 _COLUMNS = [
     ("timestamp",  "Fecha"),
@@ -116,7 +117,7 @@ class AlertsView(QWidget):
             self.table.insertRow(i)
             comp = _format_components(a.get("components"))
             display = {
-                "timestamp":     a.get("timestamp") or "",
+                "timestamp":     fecha_es(a.get("timestamp")) or "—",
                 "friendly_name": a.get("friendly_name") or "—",
                 "serial":        a.get("serial") or "—",
                 "severity":      (a.get("severity") or "").upper(),
