@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## [2026-06-09c] — Ampliación de la cobertura de pruebas
+
+### Añadido
+- **Pruebas para el módulo de prevención** (`tests/test_prevention.py`, 22
+  casos): validación estricta del `InstanceId` frente a inyección de comandos
+  (se rechazan secuencias como `;`, `$(...)`, acentos graves, espacios, VID no
+  hexadecimal, prefijos distintos de `USB` y seriales fuera de rango),
+  construcción y normalización del identificador, gestión de los desbloqueos de
+  sesión y decisión de bloqueo en modo estricto (solo severidad alta, inactivo
+  fuera de estricto y persistencia en el historial).
+- **Pruebas para el motor de comportamiento** (`tests/test_behavior_model.py`,
+  15 casos): histograma horario con suavizado por vecindad (el pico no se marca
+  como raro y una hora contigua puntúa bajo aunque no haya conexiones en ese
+  intervalo exacto), penalización por dispositivo poco visto, distancia de
+  Mahalanobis (sin ajuste o con muestras insuficientes devuelve 0; un valor
+  atípico puntúa más que el centro), serialización de los tres componentes y
+  extracción del vector de características de sesión.
+- Con ello la batería pasa de 37 a **74 pruebas**, cubriendo los dos módulos
+  críticos (control de acceso y detección de anomalías) que carecían de pruebas
+  propias.
+
 ## [2026-06-09b] — Corrección de fuga de conexiones SQLite
 
 ### Corregido
